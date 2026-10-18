@@ -3,6 +3,8 @@ from flask import Flask, request, jsonify
 app = Flask(__name__)
 
 # --- 1. DESIGN PATTERN: FACTORY METHOD ---
+
+# --- Produtos: Mensagens ---
 class Message:
     def __init__(self, sender, content):
         self.sender = sender
@@ -15,6 +17,19 @@ class SystemMessage(Message):
     def to_dict(self):
         return {"sender": "SISTEMA", "content": self.content, "type": "system"}
 
+
+# --- Produtos: Utilizadores ---
+class User:
+    def __init__(self, username, role="user"):
+        self.username = username
+        self.role = role
+
+class AdminUser(User):
+    def __init__(self, username):
+        super().__init__(username, role="admin")
+
+
+# --- Fábricas (Factory Methods) ---
 class MessageFactory:
     @staticmethod
     def create_message(msg_type, sender, content):
@@ -24,6 +39,16 @@ class MessageFactory:
             return SystemMessage("SISTEMA", content)
         else:
             raise ValueError(f"Tipo de mensagem inválido: {msg_type}")
+
+class UserFactory:
+    @staticmethod
+    def create_user(username, role="user"):
+        if role == "admin":
+            return AdminUser(username)
+        elif role == "user":
+            return User(username, role)
+        else:
+            raise ValueError(f"Tipo de utilizador inválido: {role}")
 
 
 # --- 2. DESIGN PATTERN: OBSERVER ---
@@ -45,11 +70,19 @@ chat_room = ChatRoomSubject()
 class ChatProxy:
     def __init__(self, subject):
         self._subject = subject
-        self._allowed_users = ["alice", "bob", "carol", "nathan","Josué","Josue"]  # Usuários autorizados
+        
+        # Criação dos utilizadores autorizados utilizando a UserFactory
+        allowed_names = ["alice", "bob", "carol", "nathan", "Josué", "Josue"]
+        self._allowed_users = {}
+        
+        for name in allowed_names:
+            # A Factory cria os objetos de utilizador
+            user_obj = UserFactory.create_user(name, role="user")
+            self._allowed_users[user_obj.username] = user_obj
 
-    def send_message(self, user, msg_type, content):
-        # Validação 1: Permissão/Identidade
-        if user not in self._allowed_users:
+    def send_message(self, user_name, msg_type, content):
+        # Validação 1: Verificação com base nos objetos User instanciados
+        if user_name not in self._allowed_users:
             return False, "Acesso negado: Usuário não cadastrado/permitido."
 
         # Validação 2: Requisito T1.2 - Mensagem vazia e limite de tamanho
@@ -59,8 +92,8 @@ class ChatProxy:
         if len(clean_content) > 500:
             return False, "Mensagem excede o limite de 500 caracteres."
 
-        # Se passou na verificação do Proxy, usa a Factory e notifica o Objeto Real
-        msg_obj = MessageFactory.create_message(msg_type, user, clean_content)
+        # Se passou no Proxy, usa a MessageFactory para a mensagem e notifica o Observer
+        msg_obj = MessageFactory.create_message(msg_type, user_name, clean_content)
         self._subject.notify(msg_obj)
         return True, "Mensagem enviada com sucesso!"
 
