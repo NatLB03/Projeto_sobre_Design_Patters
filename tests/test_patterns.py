@@ -1,39 +1,33 @@
 import unittest
 from ModuloServidor.app import (
     MessageFactory, Message, SystemMessage, 
-    UserFactory, User, AdminUser, 
-    ChatRoomSubject
+    UserFactory, User, 
+    ChatRoomSubject, ChatProxy
 )
 
 class TestDesignPatterns(unittest.TestCase):
 
     def test_factory_method_messages(self):
-        # Teste da criação de mensagem normal
-        msg_text = MessageFactory.create_message("text", "alice", "Olá")
+        # Criação de mensagem normal via Factory
+        msg_text = MessageFactory.create_message("text", "Manuel", "Olá")
         self.assertIsInstance(msg_text, Message)
         self.assertEqual(msg_text.to_dict()["type"], "text")
 
-        # Teste da criação de mensagem do sistema
-        msg_sys = MessageFactory.create_message("system", "admin", "Manutenção")
+        # Criação de mensagem de sistema via Factory
+        msg_sys = MessageFactory.create_message("system", "SISTEMA", "Servidor atualizado")
         self.assertIsInstance(msg_sys, SystemMessage)
         self.assertEqual(msg_sys.to_dict()["sender"], "SISTEMA")
 
     def test_factory_method_users(self):
         # 1. Teste da criação de usuário comum pela Factory
-        user_common = UserFactory.create_user("usuário_comum", role="user")
-        self.assertIsInstance(user_common, User)
-        self.assertEqual(user_common.username, "usuário_comum")
-        self.assertEqual(user_common.role, "user")
+        user = UserFactory.create_user("Nathan")
+        self.assertIsInstance(user, User)
+        self.assertEqual(user.username, "Nathan")
+        self.assertIsNotNone(user.color)
 
-        # 2. Teste da criação de usuário Admin pela Factory
-        user_admin = UserFactory.create_user("boss", role="admin")
-        self.assertIsInstance(user_admin, AdminUser)
-        self.assertEqual(user_admin.username, "boss")
-        self.assertEqual(user_admin.role, "admin")
-
-        # 3. Teste do comportamento de erro (garante que a Factory rejeita papéis inválidos)
+        # 2. Teste de rejeição de usuário com nome vazio
         with self.assertRaises(ValueError):
-            UserFactory.create_user("errado", role="nãoexistente")
+            UserFactory.create_user("")
 
     def test_observer_subject(self):
         subject = ChatRoomSubject()
@@ -44,6 +38,25 @@ class TestDesignPatterns(unittest.TestCase):
         
         self.assertEqual(len(messages), 1)
         self.assertEqual(messages[0]["content"], "Teste Observer")
+
+    def test_proxy_validations(self):
+        subject = ChatRoomSubject()
+        proxy = ChatProxy(subject)
+
+        # Usuário não cadastrado deve ser bloqueado pelo Proxy
+        success, msg = proxy.send_message("usuario_nao_registrado", "text", "Olá")
+        self.assertFalse(success)
+
+        # Registro do usuário
+        proxy.register_user("Toriel")
+
+        # Envio de mensagem vazia deve ser bloqueado pelo Proxy
+        success, msg = proxy.send_message("Toriel", "text", "")
+        self.assertFalse(success)
+
+        # Envio de mensagem válida
+        success, msg = proxy.send_message("Toriel", "text", "Mensagem válida!")
+        self.assertTrue(success)
 
 if __name__ == "__main__":
     unittest.main()
